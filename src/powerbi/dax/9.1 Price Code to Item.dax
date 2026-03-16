@@ -1,0 +1,102 @@
+DEFINE
+	VAR BillToNumber = {
+		"187939"
+	}
+
+	VAR AcctNumber = {
+		"187940"
+	}
+
+	VAR ItemNumbers = {
+		"CAP1104"
+	}
+
+	VAR __DS0FilterTable1 =
+	TREATAS(
+		AcctNumber,
+		'JDE 91-Anchor-Price Code, BT, ST-Customer Lookup Table'[Acct #]
+	)
+
+	VAR __DS0FilterTable =
+	TREATAS(
+		BillToNumber,
+		'JDE 91-Anchor-Price Code, BT, ST-Customer Lookup Table'[Bill To #]
+	)
+
+	VAR __DS0FilterTable2 =
+	TREATAS(
+		ItemNumbers,
+		'JDE 91-SKU Info-F4072'[Item #]
+	)
+
+	VAR __DS0FilterTable3 =
+	FILTER(
+		KEEPFILTERS(VALUES('JDE 91-Price Code Expiration Dates-F4072'[Price Code])),
+		NOT ('JDE 91-Price Code Expiration Dates-F4072'[Price Code] IN {
+			BLANK()
+		})
+	)
+
+	VAR __DS0FilterTable4 =
+	TREATAS(
+		{
+			"No"
+		},
+		'JDE 91-SKU Info-F4072'[Expired?]
+	)
+
+	VAR __DS0Core =
+	SELECTCOLUMNS(
+		KEEPFILTERS(FILTER(
+			KEEPFILTERS(SUMMARIZECOLUMNS(
+				'JDE 91-SKU Info-F4072'[Price Code],
+				'JDE 91-SKU Info-F4072'[Item #],
+				'JDE 91-SKU Info-F4072'[Price],
+				'JDE 91-SKU Info-F4072'[On Paper Contract?],
+				//'JDE 91-SKU Descriptions-F4101-From JDE 91'[Description],
+				'JDE 91-SKU Info-F4072'[Expiration Date],
+				__DS0FilterTable,
+				__DS0FilterTable1,
+				__DS0FilterTable2,
+				__DS0FilterTable3,
+				__DS0FilterTable4,
+				"CountRowsJDE_91_SKU_Info_F4072", COUNTROWS('JDE 91-SKU Info-F4072')
+			)
+			),
+			OR(
+				//OR(
+				OR(
+					OR(
+						OR(
+							NOT (ISBLANK('JDE 91-SKU Info-F4072'[Price Code])),
+							NOT (ISBLANK('JDE 91-SKU Info-F4072'[Item #]))
+						),
+						NOT (ISBLANK('JDE 91-SKU Info-F4072'[Price]))
+					),
+					NOT (ISBLANK('JDE 91-SKU Info-F4072'[On Paper Contract?]))
+				),
+				//NOT (ISBLANK('JDE 91-SKU Descriptions-F4101-From JDE 91'[Description]))
+				//),
+				NOT (ISBLANK('JDE 91-SKU Info-F4072'[Expiration Date]))
+			)
+		)
+		),
+		"PriceCode", 'JDE 91-SKU Info-F4072'[Price Code],
+		"ItemNumber", 'JDE 91-SKU Info-F4072'[Item #],
+		"Price", 'JDE 91-SKU Info-F4072'[Price],
+		"OnPaperContract?", 'JDE 91-SKU Info-F4072'[On Paper Contract?],
+		//"Description", 'JDE 91-SKU Descriptions-F4101-From JDE 91'[Description],
+		"ExpirationDate", FORMAT(
+			'JDE 91-SKU Info-F4072'[Expiration Date],
+			"mm/dd/yyyy"
+		)
+	)
+
+EVALUATE
+	__DS0Core
+	ORDER BY
+		"Price Code",
+		"Item Number",
+		"Price",
+		"On Paper Contract?",
+		"Expiration Date"

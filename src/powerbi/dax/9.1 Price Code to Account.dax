@@ -1,0 +1,86 @@
+DEFINE
+	VAR BillToNumber = {
+		"187939"
+	}
+
+	VAR AcctNumber = {
+		"187940"
+	}
+
+	VAR __DS0FilterTable1 =
+	TREATAS(
+		AcctNumber,
+		'JDE 91-Anchor-Price Code, BT, ST-Customer Lookup Table'[Acct #]
+	)
+
+	VAR __DS0FilterTable =
+	FILTER(
+		KEEPFILTERS(VALUES('JDE 91-Price Code Expiration Dates-F4072'[Expiration Date])),
+		'JDE 91-Price Code Expiration Dates-F4072'[Expiration Date] >= DATE(2023, 6, 30)
+	)
+
+	VAR __DS0FilterTable2 =
+	TREATAS(
+		BillToNumber,
+		'JDE 91-Anchor-Price Code, BT, ST-Customer Lookup Table'[Bill To #]
+	)
+
+	VAR __DS0FilterTable3 =
+	TREATAS(
+		{
+			"Yes"
+		},
+		'JDE 91-Price Code Expiration Dates-F4072'[Expiration Date within 180 Days?]
+	)
+
+	VAR __DS0Core =
+	SELECTCOLUMNS(
+		KEEPFILTERS(FILTER(
+			KEEPFILTERS(SUMMARIZECOLUMNS(
+				'JDE 91-Price Code Expiration Dates-F4072'[Effective Date],
+				'JDE 91-Price Code Expiration Dates-F4072'[Expiration Date],
+				'JDE 91-Price Code Expiration Dates-F4072'[Price Code],
+				'JDE 91-Price Code Expiration Dates-F4072'[Description],
+				'JDE 91-Anchor-Price Code, BT, ST-Customer Lookup Table'[Acct #],
+				'JDE 91-Anchor-Price Code, BT, ST-Customer Lookup Table'[Acct Name],
+				__DS0FilterTable,
+				__DS0FilterTable1,
+				__DS0FilterTable2,
+				__DS0FilterTable3,
+				"CountRowsJDE_91_Price_Code_Expiration_Dates_F4072", COUNTROWS('JDE 91-Price Code Expiration Dates-F4072')
+			)
+			),
+
+			OR(
+				OR(
+					OR(
+						OR(
+							OR(
+								NOT (ISBLANK('JDE 91-Price Code Expiration Dates-F4072'[Effective Date])),
+								NOT (ISBLANK('JDE 91-Price Code Expiration Dates-F4072'[Expiration Date]))
+							),
+							NOT (ISBLANK('JDE 91-Price Code Expiration Dates-F4072'[Price Code]))
+						),
+						NOT (ISBLANK('JDE 91-Price Code Expiration Dates-F4072'[Description]))
+					),
+					NOT (ISBLANK('JDE 91-Anchor-Price Code, BT, ST-Customer Lookup Table'[Acct #]))
+				),
+				NOT (ISBLANK('JDE 91-Anchor-Price Code, BT, ST-Customer Lookup Table'[Acct Name]))
+			)
+		)
+		),
+		"PriceCodeDescription", 'JDE 91-Price Code Expiration Dates-F4072'[Price Code] & " - " & 'JDE 91-Price Code Expiration Dates-F4072'[Description],
+		//"Description", 'JDE 91-Price Code Expiration Dates-F4072'[Description],
+		"Effective Date", FORMAT(
+			'JDE 91-Price Code Expiration Dates-F4072'[Effective Date],
+			"mm/dd/yyyy"
+		),
+		"Expiration Date", FORMAT(
+			'JDE 91-Price Code Expiration Dates-F4072'[Expiration Date],
+			"mm/dd/yyyy"
+		)
+	)
+
+EVALUATE
+	__DS0Core
+	ORDER BY "PriceCodeDescription"

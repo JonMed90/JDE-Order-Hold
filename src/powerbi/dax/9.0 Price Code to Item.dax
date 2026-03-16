@@ -1,0 +1,90 @@
+DEFINE
+	VAR BillToNumber = {
+		"87947"
+	}
+
+	VAR ItemNumbers = {
+		"01-007",
+		"01-008",
+		"01-006"
+	}
+
+	VAR __DS0FilterTable1 =
+	TREATAS(
+		AcctNumber,
+		'JDE 90-Anchor-Price Code, BT, ST-F4072WMT'[Acct #]
+	)
+
+	VAR __DS0FilterTable =
+	TREATAS(
+		BillToNumber,
+		'JDE 90-Anchor-Price Code, BT, ST-F4072WMT'[Bill To #]
+	)
+
+	VAR __DS0FilterTable2 =
+	TREATAS(
+		ItemNumbers,
+		'JDE 90-SKU Info-F4072WMT'[SKU]
+	)
+
+	VAR __DS0FilterTable3 =
+	FILTER(
+		KEEPFILTERS(VALUES('JDE 90-Price Code Expiration Dates-F4072WMT'[Price Code])),
+		NOT ('JDE 90-Price Code Expiration Dates-F4072WMT'[Price Code] IN {
+			BLANK()
+		})
+	)
+
+	VAR __DS0Core =
+	SELECTCOLUMNS(
+		KEEPFILTERS(FILTER(
+			KEEPFILTERS(SUMMARIZECOLUMNS(
+				'JDE 90-Price Code Expiration Dates-F4072WMT'[Price Code],
+				'JDE 90-SKU Info-F4072WMT'[SKU],
+				'JDE 90-SKU Info-F4072WMT'[Item Price],
+				'JDE 90-SKU Info-F4072WMT'[On Paper Contract?],
+				//'JDE 90-SKU Info-F4072WMT'[Description],
+				'JDE 90-SKU Info-F4072WMT'[Expiration Date],
+				__DS0FilterTable,
+				__DS0FilterTable2,
+				__DS0FilterTable3,
+				"CountRowsJDE_90_SKU_Info_F4072WMT", COUNTROWS('JDE 90-SKU Info-F4072WMT')
+			)
+			),
+			OR(
+				//OR(
+					OR(
+						OR(
+							OR(
+								NOT (ISBLANK('JDE 90-Price Code Expiration Dates-F4072WMT'[Price Code])),
+								NOT (ISBLANK('JDE 90-SKU Info-F4072WMT'[SKU]))
+							),
+							NOT (ISBLANK('JDE 90-SKU Info-F4072WMT'[Item Price]))
+						),
+						NOT (ISBLANK('JDE 90-SKU Info-F4072WMT'[On Paper Contract?]))
+					),
+					//NOT (ISBLANK('JDE 90-SKU Info-F4072WMT'[Description]))
+				//),
+				NOT (ISBLANK('JDE 90-SKU Info-F4072WMT'[Expiration Date]))
+			)
+		)
+		),
+		"Price Code", 'JDE 90-Price Code Expiration Dates-F4072WMT'[Price Code],
+		"Item Number", 'JDE 90-SKU Info-F4072WMT'[SKU],
+		"Price", 'JDE 90-SKU Info-F4072WMT'[Item Price],
+		"On Paper Contract?", 'JDE 90-SKU Info-F4072WMT'[On Paper Contract?],
+		//"Description", 'JDE 90-SKU Info-F4072WMT'[Description],
+		"Expiration Date", FORMAT(
+			'JDE 90-SKU Info-F4072WMT'[Expiration Date],
+			"mm/dd/yyyy"
+		)
+	)
+
+EVALUATE
+	__DS0Core
+	ORDER BY
+		"Price Code",
+		"Item Number",
+		"Price",
+		"On Paper Contract?",
+		"Expiration Date"

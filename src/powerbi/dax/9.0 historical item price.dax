@@ -1,0 +1,68 @@
+DEFINE
+	VAR BillToNumber = {
+		"187939"
+	}
+
+	VAR AcctNumber = {
+		"187940"
+	}
+
+	VAR ItemNumbers = {
+		"CAP1104"
+	}
+
+	VAR __ThisMonthStart = DATE(YEAR(TODAY()), MONTH(TODAY()), 1)
+
+	VAR __StartLTM = EDATE(
+		__ThisMonthStart,
+		-12
+	)
+
+	VAR __DS0FilterTable =
+	TREATAS(
+		ItemNumbers,
+		'JDE 90-Consolidated Sales Data'[Item Number]
+	)
+
+	VAR __DS0FilterTable1 =
+	TREATAS(
+		AcctNumber,
+		'JDE 90-Consolidated Sales Data'[Ship To Number]
+	)
+
+	VAR __DS0FilterTable2 =
+	TREATAS(
+		BillToNumber,
+		'JDE 90-Consolidated Sales Data'[Sold To Number]
+	)
+
+	VAR __DS0FilterTable3 =
+	FILTER(
+		KEEPFILTERS(VALUES('JDE 90-Consolidated Sales Data'[G/L Date])),
+		AND(
+			'JDE 90-Consolidated Sales Data'[G/L Date] >= __StartLTM,
+			'JDE 90-Consolidated Sales Data'[G/L Date] < __ThisMonthStart
+		)
+	)
+
+	VAR __DS0Core =
+	SELECTCOLUMNS(
+		SUMMARIZECOLUMNS(
+			'JDE 90-Consolidated Sales Data'[Item Number],
+			//'JDE 90-Consolidated Sales Data'[Invoice Date],
+			__DS0FilterTable,
+			__DS0FilterTable1,
+			__DS0FilterTable2,
+			__DS0FilterTable3,
+			"Quantity", CALCULATE(SUM('JDE 90-Consolidated Sales Data'[Quantity Ordered])),
+			"ExtendedPrice", CALCULATE(SUM('JDE 90-Consolidated Sales Data'[Extended Price]))
+		),
+		//"Date", 'JDE 90-Consolidated Sales Data'[Invoice Date],
+		"ItemNumber", 'JDE 90-Consolidated Sales Data'[Item Number],
+		"Quantity", [Quantity],
+		"ExtendedPrice", [ExtendedPrice]
+	)
+
+
+EVALUATE
+	__DS0Core
