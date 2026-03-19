@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_JDE_Order_Hold" targetNamespace="http://example.com/bpmn/jde-order-hold">
+
+  <bpmn:process id="Process_JDE_Order_Hold" name="JDE Order Hold Data Workflow" isExecutable="false">
+
+    <!-- Lanes (systems/teams) -->
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_JDE" name="JDE / Source System">
+        <bpmn:flowNodeRef>StartEvent_Email</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_PA" name="Power Automate">
+        <bpmn:flowNodeRef>Task_ParseEmail</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CreateSPItem</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_ParallelSplit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_QuoteEval</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_PricingLookup</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_ParallelJoin</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_SP" name="SharePoint (Order Hold List)">
+        <bpmn:flowNodeRef>Task_EnrichSPRecord</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_UpdateStatus</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_LogWorkflowState</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_CA" name="Contract Activation Team (Power Apps)">
+        <bpmn:flowNodeRef>Task_CAReview</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_StrategicNeeded</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CAApprove</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ReleaseInJDE</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_SS" name="Strategic Sales">
+        <bpmn:flowNodeRef>Task_AssignToSS</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_SSApprove</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_Notify" name="Notifications (Outlook)">
+        <bpmn:flowNodeRef>Task_SendApprovalRequest</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_NotifyCA</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+
+    <!-- Start -->
+    <bpmn:startEvent id="StartEvent_Email" name="JDE Order Hold Email (Message Trigger)">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <!-- Power Automate intake -->
+    <bpmn:serviceTask id="Task_ParseEmail" name="Power Automate: Parse Email Content">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Task_CreateSPItem" name="SharePoint: Create New Order Hold Record">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Parallel enrichment -->
+    <bpmn:parallelGateway id="Gateway_ParallelSplit" name="Parallel Enrichment (Split)">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4A</bpmn:outgoing>
+      <bpmn:outgoing>Flow_4B</bpmn:outgoing>
+    </bpmn:parallelGateway>
+
+    <bpmn:serviceTask id="Task_QuoteEval" name="Power Automate: Quote Evaluation (Retrieve customer/sales attributes)">
+      <bpmn:incoming>Flow_4A</bpmn:incoming>
+      <bpmn:outgoing>Flow_5A</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Task_PricingLookup" name="Power Automate: Contract Pricing Lookup (Retrieve pricing codes/history)">
+      <bpmn:incoming>Flow_4B</bpmn:incoming>
+      <bpmn:outgoing>Flow_5B</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:parallelGateway id="Gateway_ParallelJoin" name="Parallel Enrichment (Join)">
+      <bpmn:incoming>Flow_5A</bpmn:incoming>
+      <bpmn:incoming>Flow_5B</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:parallelGateway>
+
+    <bpmn:serviceTask id="Task_EnrichSPRecord" name="SharePoint: Enrich Order Hold Record">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_7</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Human review -->
+    <bpmn:userTask id="Task_CAReview" name="Contract Activation: Review Order Hold (Power App)">
+      <bpmn:incoming>Flow_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_8</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <!-- Decision -->
+    <bpmn:exclusiveGateway id="Gateway_StrategicNeeded" name="Strategic Sales Approval Required?">
+      <bpmn:incoming>Flow_8</bpmn:incoming>
+      <bpmn:outgoing>Flow_No</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Yes</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- No path -->
+    <bpmn:userTask id="Task_CAApprove" name="Contract Activation: Approve in Power App">
+      <bpmn:incoming>Flow_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_9</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:manualTask id="Task_ReleaseInJDE" name="Release Order Hold in JDE">
+      <bpmn:incoming>Flow_9</bpmn:incoming>
+      <bpmn:outgoing>Flow_10</bpmn:outgoing>
+    </bpmn:manualTask>
+
+    <bpmn:serviceTask id="Task_UpdateStatus" name="SharePoint: Update Order Hold Status">
+      <bpmn:incoming>Flow_10</bpmn:incoming>
+      <bpmn:outgoing>Flow_11</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Task_LogWorkflowState" name="Record Workflow State (Reporting/Audit)">
+      <bpmn:incoming>Flow_11</bpmn:incoming>
+      <bpmn:outgoing>Flow_End1</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:endEvent id="EndEvent_Released" name="Workflow Completed (Order Released)">
+      <bpmn:incoming>Flow_End1</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- Yes path -->
+    <bpmn:userTask id="Task_AssignToSS" name="Assign to Strategic Sales & Request Approval (Power App)">
+      <bpmn:incoming>Flow_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_12</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="Task_SendApprovalRequest" name="Power Automate: Send Approval Request (Outlook)">
+      <bpmn:incoming>Flow_12</bpmn:incoming>
+      <bpmn:outgoing>Flow_13</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_SSApprove" name="Strategic Sales: Approve (Outlook/Approvals)">
+      <bpmn:incoming>Flow_13</bpmn:incoming>
+      <bpmn:outgoing>Flow_14</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="Task_NotifyCA" name="Notify Contract Activation of Decision (Outlook)">
+      <bpmn:incoming>Flow_14</bpmn:incoming>
+      <bpmn:outgoing>Flow_15</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- After SS approval, return to CA approve/release -->
+    <bpmn:sequenceFlow id="Flow_15" sourceRef="Task_NotifyCA" targetRef="Task_CAApprove"/>
+
+    <!-- Sequence flows -->
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_Email" targetRef="Task_ParseEmail"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_ParseEmail" targetRef="Task_CreateSPItem"/>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_CreateSPItem" targetRef="Gateway_ParallelSplit"/>
+
+    <bpmn:sequenceFlow id="Flow_4A" sourceRef="Gateway_ParallelSplit" targetRef="Task_QuoteEval"/>
+    <bpmn:sequenceFlow id="Flow_4B" sourceRef="Gateway_ParallelSplit" targetRef="Task_PricingLookup"/>
+    <bpmn:sequenceFlow id="Flow_5A" sourceRef="Task_QuoteEval" targetRef="Gateway_ParallelJoin"/>
+    <bpmn:sequenceFlow id="Flow_5B" sourceRef="Task_PricingLookup" targetRef="Gateway_ParallelJoin"/>
+
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Gateway_ParallelJoin" targetRef="Task_EnrichSPRecord"/>
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="Task_EnrichSPRecord" targetRef="Task_CAReview"/>
+    <bpmn:sequenceFlow id="Flow_8" sourceRef="Task_CAReview" targetRef="Gateway_StrategicNeeded"/>
+
+    <bpmn:sequenceFlow id="Flow_No" sourceRef="Gateway_StrategicNeeded" targetRef="Task_CAApprove">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression"><![CDATA[No]]></bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow id="Flow_Yes" sourceRef="Gateway_StrategicNeeded" targetRef="Task_AssignToSS">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression"><![CDATA[Yes]]></bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+
+    <bpmn:sequenceFlow id="Flow_9" sourceRef="Task_CAApprove" targetRef="Task_ReleaseInJDE"/>
+    <bpmn:sequenceFlow id="Flow_10" sourceRef="Task_ReleaseInJDE" targetRef="Task_UpdateStatus"/>
+    <bpmn:sequenceFlow id="Flow_11" sourceRef="Task_UpdateStatus" targetRef="Task_LogWorkflowState"/>
+    <bpmn:sequenceFlow id="Flow_End1" sourceRef="Task_LogWorkflowState" targetRef="EndEvent_Released"/>
+
+    <bpmn:sequenceFlow id="Flow_12" sourceRef="Task_AssignToSS" targetRef="Task_SendApprovalRequest"/>
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="Task_SendApprovalRequest" targetRef="Task_SSApprove"/>
+    <bpmn:sequenceFlow id="Flow_14" sourceRef="Task_SSApprove" targetRef="Task_NotifyCA"/>
+
+  </bpmn:process>
+</bpmn:definitions>
